@@ -4,3 +4,6 @@ package-lock.json
 
 # MacOS
 .DS_Store
+
+# Internal testing files, MWEs, and other temporary files.
+/testing/

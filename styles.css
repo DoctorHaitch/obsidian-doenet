@@ -1,0 +1,37 @@
+/* Remove extra vertical gap from iframe */
+iframe {
+  display: block;        /* removes inline baseline gap */
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* Tighten the outer wrappers (very likely source) */
+.callout-content {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+/* If coming from code block container */
+.block-language-doenet iframe,
+.block-language-iframe iframe,
+.block-language-html iframe {
+  margin: 0 !important;
+}
+
+/* Remove spacing between stacked iframes */
+iframe + iframe {
+  margin-top: 0.25rem;
+}
+
+.doenet-container {
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 0;   /* eliminates inline spacing artifacts */
+}
+
+.doenet-container iframe {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
