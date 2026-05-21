@@ -1,0 +1,16 @@
+<!-- Author: Kris Hollingsworth -->
+<!-- Sample pulling DoenetML file from GitHub
+---- instead of inline.
+ -->
+
+<p>Hello Doenet</p>
+
+<figure>
+  <graph showNavigation="false" fixAxes="true">
+    <shortDescription>The graph of f(x)=sin(x).</shortDescription>
+    <function>sin(x)</function>
+  </graph>
+  <caption>
+    The graph of <m>f(x)=\sin(x)</m>.
+  </caption>
+</figure>
