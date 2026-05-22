@@ -1,4 +1,5 @@
 {
+  "useLocalDoenet": true,
   "enableCache": true,
   "cacheTTL": 1440
 }

@@ -1,5 +1,6 @@
 import { Plugin, PluginSettingTab, App, Setting, Notice } from "obsidian"; //NEW
 import { buildIframeSrcdoc } from "./iframeSrcdoc";
+import { resolveDoenetScript, resolveMathJaxScript, resolveDoenetCSS } from "./loader";
 
 // So many render layers, but it works as well as
 // one might possibly hope.
@@ -17,12 +18,16 @@ interface DoenetOptions {
 }
 
 // --------------------------------------------------  NEW
+type DoenetMode = "cdn" | "local" | "auto";
+
 interface DoenetPluginSettings {
+  mode: DoenetMode;
   enableCache: boolean;
   cacheTTL: number;
 }
 
 const DEFAULT_SETTINGS: DoenetPluginSettings = {
+  mode: "auto",
   enableCache: false,
   cacheTTL: 1440, // 24 hours
 };
@@ -121,7 +126,9 @@ class CacheManager {
 
 // --------------------------------------------------
 export default class DoenetPlugin extends Plugin {
-  settings: DoenetPluginSettings; // NEW
+  settings: DoenetPluginSettings;
+  private cssCache: string | null = null;
+  private cachedMode: string | null = null;
   
   async onload() {
     console.log("Doenet plugin (iframe mode) loaded");
@@ -137,6 +144,39 @@ export default class DoenetPlugin extends Plugin {
       }
     );
   }
+
+  async loadDoenetCSS(): Promise<string> {
+    if (this.cssCache && this.cachedMode === this.settings.mode) {
+      console.log("[Doenet] CSS cache (memory) hit");
+      return this.cssCache;
+    }
+
+    const cssSource = resolveDoenetCSS(
+      this.settings.mode,
+      this.app,
+      this
+    );
+
+    let rawCSS: string;
+
+    try {
+      rawCSS = await fetch(cssSource.primary).then(r => r.text());
+      console.log("[Doenet] CSS loaded from primary:", cssSource.primary);
+    } catch (e) {
+      if (cssSource.fallback) {
+        console.warn("[Doenet] CSS fallback to local");
+        rawCSS = await fetch(cssSource.fallback).then(r => r.text());
+      } else {
+        throw e;
+      }
+    }
+
+    this.cssCache = rawCSS;
+    this.cachedMode = this.settings.mode;
+
+    return rawCSS;
+  }
+
 
   // -------------------------------------------------- NEW
 
@@ -244,12 +284,22 @@ export default class DoenetPlugin extends Plugin {
   async renderDoenetIframe(source : string, el: HTMLElement): Promise<void> {
     const { doenetML, options } = await this.parseFirstLineOptions(source);
     const showKeyboard = options.showkeyboard === "false";
-    const rawCSS = await fetch(
-      "https://cdn.jsdelivr.net/npm/@doenet/standalone@latest/style.css"
-    ).then(r => r.text());
+    const rawCSS = await this.loadDoenetCSS();
     const css = rawCSS + "\n/*# sourceURL=doenet.css */";
     const iframe = document.createElement("iframe");
     const id = "doenet-" + Math.random().toString(36).slice(2);
+
+    const scriptSource = resolveDoenetScript(
+      this.settings.mode,
+      this.app,
+      this
+    );
+
+    const mathJaxSource = resolveMathJaxScript(
+      this.settings.mode,
+      this.app,
+      this
+    );
 
     // Set iframe attributes and styles for optimal Doenet rendering
     iframe.dataset.doenetId = id;
@@ -264,7 +314,15 @@ export default class DoenetPlugin extends Plugin {
     // ------------------------Inject FULL iframe content
     // --------------------------------------------------
     // Switch to calling function to build full srcdoc content, including CSS and DoenetML.
-    iframe.srcdoc = buildIframeSrcdoc({ css, doenetML, id, showKeyboard });
+    iframe.srcdoc = buildIframeSrcdoc({
+      css,
+      doenetML,
+      id,
+      showKeyboard,
+      scriptSource,
+      mathJaxSource,
+      mode: this.settings.mode
+    });
 
     // Safe Height Fallback? Is this still necessary?
     iframe.onload = () => {
@@ -324,6 +382,27 @@ class DoenetSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     containerEl.createEl("h2", { text: "Doenet Settings" });
+
+    // ----------------------
+    // Enable load from Local, CDN, or Auto (CDN with Local fallback)
+    // ----------------------
+    new Setting(containerEl)
+      .setName("Doenet loading mode")
+      .setDesc(
+        "Choose how Doenet, MathJax, and Doenet CSS are loaded (CDN = best performance, Local = offline, Auto = CDN with fallback)"
+      )
+      .addDropdown(drop =>
+        drop
+          .addOption("cdn", "CDN (fast, requires internet)")
+          .addOption("local", "Local (offline, uses bundled files)")
+          .addOption("auto", "Auto (CDN with local fallback)")
+          .setValue(this.plugin.settings.mode)
+          .onChange(async (value: "cdn" | "local" | "auto") => {
+            this.plugin.settings.mode = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
 
     // ----------------------
     // Enable Cache Toggle

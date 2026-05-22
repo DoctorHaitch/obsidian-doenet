@@ -3,11 +3,47 @@ export function buildIframeSrcdoc(params: {
     doenetML: string;
     id: string;
     showKeyboard: boolean;
+    scriptSource: { primary: string; fallback?: string };
+    mathJaxSource: { primary: string; fallback?: string };
+    mode: DoenetMode;
 }): string {
-  const { css, doenetML, id, showKeyboard } = params;
+  const { css, doenetML, id, showKeyboard, scriptSource, mathJaxSource, mode } = params;
   return `
   <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
+
+
+<script type="module">
+
+
+async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+console.log("Mode:", "${mode}");
+
+let mathJaxLoaded = false;
+
+// ----------- MathJax
+try {
+  await loadScript("${mathJaxSource.primary}");
+  mathJaxLoaded = true;
+} catch (e) {
+  ${mode === "auto" ? `
+  console.warn("MathJax primary failed, using fallback");
+  await loadScript("${mathJaxSource.fallback}");
+  mathJaxLoaded = true;
+  ` : ""}
+}
+
+</script>
+
 
 <style>
 ${css}
@@ -60,8 +96,25 @@ ${css}
 
 <div id="app"></div>
 
+
 <script type="module">
-import * as Doenet from "https://cdn.jsdelivr.net/npm/@doenet/standalone@latest/doenet-standalone.js";
+const primary = "${scriptSource.primary}";
+const fallback = "${scriptSource.fallback || ""}";
+const mode = "${mode}";
+
+let Doenet;
+
+try {
+  Doenet = await import(primary);
+  console.log("[Doenet] Loaded primary:", primary);
+} catch (e) {
+  if (mode === "auto" && fallback) {
+    console.warn("[Doenet] Primary failed, using fallback:", fallback);
+    Doenet = await import(fallback);
+  } else {
+    throw e;
+  }
+}
 
 const container = document.getElementById("app");
 

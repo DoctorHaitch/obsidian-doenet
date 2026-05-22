@@ -1,7 +1,7 @@
 {
   "id": "obsidian-doenet",
   "name": "Doenet Activities",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "minAppVersion": "1.12.0",
   "description": "Render DoenetML using fenced blocks ```doenet ... ```",
   "author": "Kris Hollingsworth",
