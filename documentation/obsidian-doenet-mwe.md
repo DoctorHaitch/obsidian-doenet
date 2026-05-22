@@ -1,3 +1,5 @@
+# Inline Doenet ML File
+
 ```doenet  
 <p>Hello Doenet</p>
 
@@ -12,6 +14,7 @@
 </figure>
 ```
 
-```doenet
-https://raw.githubusercontent.com/DoctorHaitch/obsidian-doenet/main/documentation/fetch_example.oml
-```
+> [!example] Remote Fetch of DoenetML file.
+> ```doenet
+> https://raw.githubusercontent.com/DoctorHaitch/obsidian-doenet/main/documentation/fetch_example.oml
+> ```

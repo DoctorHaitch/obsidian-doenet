@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Plugin, PluginSettingTab, App, Setting, Notice } from "obsidian"; //NEW
 import { buildIframeSrcdoc } from "./iframeSrcdoc";
 
 // So many render layers, but it works as well as
@@ -16,11 +16,119 @@ interface DoenetOptions {
   [key: string]: string | boolean | undefined;
 }
 
+// --------------------------------------------------  NEW
+interface DoenetPluginSettings {
+  enableCache: boolean;
+  cacheTTL: number;
+}
+
+const DEFAULT_SETTINGS: DoenetPluginSettings = {
+  enableCache: false,
+  cacheTTL: 1440, // 24 hours
+};
+
+// -------------------------------------------------- NEW
+class CacheManager {
+  plugin: DoenetPlugin;
+
+  constructor(plugin: DoenetPlugin) {
+    this.plugin = plugin;
+  }
+  
+  private async getCachePath(url: string): Promise<string> {
+    const hash = await this.hashString(url);
+    return `${this.plugin.manifest.dir}/cache/${hash}.json`;
+  }
+
+  private async ensureCacheFolder(): Promise<void> {
+    const dir = `${this.plugin.manifest.dir}/cache`;
+
+    if (!(await this.plugin.app.vault.adapter.exists(dir))) {
+      await this.plugin.app.vault.adapter.mkdir(dir);
+    }
+  }
+  
+  // ----------- Updated with debug output.
+  async get(url: string): Promise<string | null> {
+    if (!this.plugin.settings.enableCache) {
+      console.log("[Doenet] Cache disabled");
+      return null;
+    }
+
+    const path = await this.getCachePath(url); // UPDATED to async
+
+    if (!(await this.plugin.app.vault.adapter.exists(path))) {
+      console.log("[Doenet] Cache miss (no file):", url);
+      return null;
+    }
+
+    try {
+      const raw = await this.plugin.app.vault.adapter.read(path);
+      const data = JSON.parse(raw);
+
+      const ageMinutes =
+        (Date.now() - data.timestamp) / (1000 * 60);
+
+      if (ageMinutes > this.plugin.settings.cacheTTL) {
+        console.log("[Doenet] Cache expired:", url);
+        return null;
+      }
+
+      console.log("[Doenet] Cache HIT:", data.url);
+      return data.content;
+
+    } catch (e) {
+      console.error("[Doenet] Cache read error:", e);
+      return null;
+    }
+  }
+
+  async set(url: string, content: string): Promise<void> {
+    if (!this.plugin.settings.enableCache) return;
+
+    const path = await this.getCachePath(url); // UPDATED to async
+
+    await this.ensureCacheFolder();
+
+    const data = {
+      url, 
+      timestamp: Date.now(),
+      content,
+    };
+
+    try {
+      console.log("[Doenet] Caching response:", url);
+      await this.plugin.app.vault.adapter.write(
+        path,
+        JSON.stringify(data)
+      );
+    } catch (e) {
+      console.error("Cache write error:", e);
+    }
+  }
+
+  // ------------ NEW
+  private async hashString(input: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+}
+
 // --------------------------------------------------
 export default class DoenetPlugin extends Plugin {
-
+  settings: DoenetPluginSettings; // NEW
+  
   async onload() {
     console.log("Doenet plugin (iframe mode) loaded");
+
+    await this.loadSettings();  // NEW
+    this.addSettingTab(new DoenetSettingTab(this.app, this)); // NEW
+
 
     this.registerMarkdownCodeBlockProcessor(
       "doenet",
@@ -28,6 +136,16 @@ export default class DoenetPlugin extends Plugin {
         await this.renderDoenetIframe(source, el);
       }
     );
+  }
+
+  // -------------------------------------------------- NEW
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
   }
 
   // --------------------------------------------------
@@ -59,6 +177,18 @@ export default class DoenetPlugin extends Plugin {
     // Process content, if url, fetch content, if inline, use as-is.
     const isURL = /^https?:\/\/\S+$/.test(doenetML);
     if (isURL) {
+      // ------------------------------ NEW
+      const cache = new CacheManager(this);
+
+      // Try cache first
+      const cached = await cache.get(doenetML);
+      if (cached) {
+        return {
+          doenetML: cached,
+          options: { ...options, source: "url" }
+        };
+      }
+      // ------------------------------
       try {
         // Timeout after 8 seconds to prevent hanging on bad URLs.
         const controller = new AbortController();
@@ -74,6 +204,7 @@ export default class DoenetPlugin extends Plugin {
         }
 
         const fetchedText = await res.text();
+        await cache.set(doenetML, fetchedText);
 
         // Validate response is non-empty.
         if (!fetchedText || !fetchedText.trim()) {
@@ -177,3 +308,82 @@ export default class DoenetPlugin extends Plugin {
     });
   }
 };
+
+
+// --------------------------------------------------  NEW
+class DoenetSettingTab extends PluginSettingTab {
+  plugin: DoenetPlugin;
+
+  constructor(app: App, plugin: DoenetPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+
+    containerEl.createEl("h2", { text: "Doenet Settings" });
+
+    // ----------------------
+    // Enable Cache Toggle
+    // ----------------------
+    new Setting(containerEl)
+      .setName("Enable local caching")
+      .setDesc("Cache remotely fetched files locally for faster loading.")
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.enableCache)
+          .onChange(async (value) => {
+            this.plugin.settings.enableCache = value;
+            await this.plugin.saveSettings();
+
+            this.display(); // refresh UI
+          })
+      );
+
+    // ----------------------
+    // Cache TTL Input
+    // ----------------------
+    new Setting(containerEl)
+      .setName("Cache duration (minutes)")
+      .setDesc("How long cached files should be reused before refetching.")
+      .addText(text => {
+        text
+          .setPlaceholder("1440")
+          .setValue(String(this.plugin.settings.cacheTTL))
+          .setDisabled(!this.plugin.settings.enableCache)
+          .onChange(async (value) => {
+            const num = parseInt(value);
+            this.plugin.settings.cacheTTL = isNaN(num) ? 1440 : num;
+            await this.plugin.saveSettings();
+          });
+      });
+    // ----------------------
+    // Clear Cache Button
+    // ----------------------
+    new Setting(containerEl)
+      .setName("Clear cache")
+      .setDesc("Delete all locally cached Doenet files.")
+      .addButton(button =>
+        button
+          .setButtonText("Clear")
+          .setWarning()
+          .onClick(async () => {
+            const dir = `${this.plugin.manifest.dir}/cache`;
+
+            try {
+              if (await this.plugin.app.vault.adapter.exists(dir)) {
+                await this.plugin.app.vault.adapter.rmdir(dir, true);
+                console.log("[Doenet] Cache cleared");
+              } else {
+                console.log("[Doenet] No cache folder to clear");
+              }
+            } catch (e) {
+              console.error("[Doenet] Error clearing cache:", e);
+            }
+            new Notice("Doenet cache cleared");
+          })
+      );  
+  }
+}

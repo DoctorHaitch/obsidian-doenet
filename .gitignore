@@ -7,3 +7,4 @@ package-lock.json
 
 # Internal testing files, MWEs, and other temporary files.
 /testing/
+/cache/
