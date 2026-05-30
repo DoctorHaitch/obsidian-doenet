@@ -1,6 +1,8 @@
-import { Plugin, PluginSettingTab, App, Setting, Notice } from "obsidian"; //NEW
+import { Plugin as ObsidianPlugin } from "obsidian";
+import { PluginSettingTab, App, Setting, Notice } from "obsidian"; //NEW
 import { buildIframeSrcdoc } from "./iframeSrcdoc";
 import { resolveDoenetScript, resolveMathJaxScript, resolveDoenetCSS } from "./loader";
+import type { DoenetMode } from "./types";
 
 // So many render layers, but it works as well as
 // one might possibly hope.
@@ -18,7 +20,7 @@ interface DoenetOptions {
 }
 
 // --------------------------------------------------  NEW
-type DoenetMode = "cdn" | "local" | "auto";
+
 
 interface DoenetPluginSettings {
   mode: DoenetMode;
@@ -125,8 +127,8 @@ class CacheManager {
 }
 
 // --------------------------------------------------
-export default class DoenetPlugin extends Plugin {
-  settings: DoenetPluginSettings;
+export default class DoenetPlugin extends ObsidianPlugin {
+  settings!: DoenetPluginSettings;
   private cssCache: string | null = null;
   private cachedMode: string | null = null;
   
@@ -152,9 +154,9 @@ export default class DoenetPlugin extends Plugin {
     }
 
     const cssSource = resolveDoenetCSS(
-      this.settings.mode,
-      this.app,
-      this
+      this.settings.mode as DoenetMode,
+      this.app as App,
+      this as DoenetPlugin
     );
 
     let rawCSS: string;
@@ -305,10 +307,12 @@ export default class DoenetPlugin extends Plugin {
     iframe.dataset.doenetId = id;
     iframe.style.width = options.width || "100%"; // Full width by default
     iframe.style.border = "none"; // Remove default border
+    iframe.style.overflow = "hidden"; // Hide scrollbars
     iframe.style.display = "block"; // Remove default inline spacing
-    iframe.style.overflow = "visible"; // Allow iframe to expand with content
     iframe.style.height = options.height || "300px"; // Prevent collapse
+    iframe.setAttribute("scrolling", "no"); // Legacy fallback safety net
     el.appendChild(iframe); // Add iframe to DOM before setting srcdoc for better performance
+
 
     // --------------------------------------------------
     // ------------------------Inject FULL iframe content
@@ -343,20 +347,33 @@ export default class DoenetPlugin extends Plugin {
     // Parent resize listener (UNCHANGED)
     // --------------------------------------------------
     const listener = (event: MessageEvent) => {
-    //  console.log("MESSAGE RECEIVED:", {
-    //    data: event.data,
-    //    origin: event.origin,
-    //    sourceMatches: event.source === iframe.contentWindow
-    //  });
-
       if (
         event.source === iframe.contentWindow &&
         event.data?.type === "doenet-resize" &&
         event.data.id === id
       ) {
-        iframe.style.height = event.data.height + "px";
+        // Math.ceil prevents fractional pixel gaps that cause scrollbars
+        const TargetHeight = Math.ceil(event.data.height);
+        
+        iframe.style.height = TargetHeight + "px";
+        iframe.style.overflow = "hidden"; // Force-disable scrollbars dynamically
       }
     };
+    // const listener = (event: MessageEvent) => {
+    // //  console.log("MESSAGE RECEIVED:", {
+    // //    data: event.data,
+    // //    origin: event.origin,
+    // //    sourceMatches: event.source === iframe.contentWindow
+    // //  });
+
+    //   if (
+    //     event.source === iframe.contentWindow &&
+    //     event.data?.type === "doenet-resize" &&
+    //     event.data.id === id
+    //   ) {
+    //     iframe.style.height = event.data.height + "px";
+    //   }
+    // };
 
     window.addEventListener("message", listener);
 
@@ -397,12 +414,11 @@ class DoenetSettingTab extends PluginSettingTab {
           .addOption("local", "Local (offline, uses bundled files)")
           .addOption("auto", "Auto (CDN with local fallback)")
           .setValue(this.plugin.settings.mode)
-          .onChange(async (value: "cdn" | "local" | "auto") => {
-            this.plugin.settings.mode = value;
+          .onChange(async (value: string) => {
+            this.plugin.settings.mode = value as DoenetMode;
             await this.plugin.saveSettings();
           })
       );
-
 
     // ----------------------
     // Enable Cache Toggle

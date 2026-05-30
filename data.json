@@ -1,5 +1,6 @@
 {
-  "useLocalDoenet": true,
-  "enableCache": true,
-  "cacheTTL": 1440
+  "mode": "auto",
+  "enableCache": false,
+  "cacheTTL": 1440,
+  "useLocalDoenet": true
 }

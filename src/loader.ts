@@ -1,3 +1,6 @@
+import type { DoenetMode } from "./types";
+import { Plugin as ObsidianPlugin } from "obsidian";
+import { App } from "obsidian"; //NEW
 
 async function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -24,7 +27,7 @@ async function loadScript(src: string): Promise<void> {
 export function resolveDoenetScript(
   mode: DoenetMode,
   app: App,
-  plugin: Plugin
+  plugin: ObsidianPlugin
 ): { primary: string; fallback?: string } {
 
   const local = app.vault.adapter.getResourcePath(
@@ -44,7 +47,7 @@ export function resolveDoenetScript(
 export function resolveMathJaxScript(
   mode: DoenetMode,
   app: App,
-  plugin: Plugin
+  plugin: ObsidianPlugin
 ): { primary: string; fallback?: string } {
 
   const local = app.vault.adapter.getResourcePath(
@@ -63,7 +66,7 @@ export function resolveMathJaxScript(
 export function resolveDoenetCSS(
   mode: DoenetMode,
   app: App,
-  plugin: Plugin
+  plugin: ObsidianPlugin
 ): { primary: string; fallback?: string } {
 
   const local = app.vault.adapter.getResourcePath(

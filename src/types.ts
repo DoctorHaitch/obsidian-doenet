@@ -1,0 +1,1 @@
+export type DoenetMode = "cdn" | "local" | "auto";
