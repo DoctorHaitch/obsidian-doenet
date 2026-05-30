@@ -1,4 +1,4 @@
-import type { DoenetMode } from "./types";
+import type { DoenetMode, DoenetVersion } from "./types";
 import { Plugin as ObsidianPlugin } from "obsidian";
 import { App } from "obsidian"; //NEW
 
@@ -26,15 +26,18 @@ async function loadScript(src: string): Promise<void> {
 
 export function resolveDoenetScript(
   mode: DoenetMode,
+  version: DoenetVersion,
   app: App,
   plugin: ObsidianPlugin
 ): { primary: string; fallback?: string } {
 
+  const cdnVersion = version === "dev" ? "dev" : "latest";
+
   const local = app.vault.adapter.getResourcePath(
-    plugin.manifest.dir + "/vendor/doenet/doenet-standalone.js"
+    plugin.manifest.dir + `/vendor/doenet/doenet-standalone-${cdnVersion}.js`
   );
 
-  const cdn = "https://cdn.jsdelivr.net/npm/@doenet/standalone@latest/doenet-standalone.js";
+  const cdn = `https://cdn.jsdelivr.net/npm/@doenet/standalone@${cdnVersion}/doenet-standalone.js`;
 
   if (mode === "local") return { primary: local };
   if (mode === "cdn") return { primary: cdn };

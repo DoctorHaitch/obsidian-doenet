@@ -1,5 +1,6 @@
 {
   "mode": "auto",
+  "doenetVersion": "dev",
   "enableCache": false,
   "cacheTTL": 1440,
   "useLocalDoenet": true

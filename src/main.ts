@@ -2,7 +2,7 @@ import { Plugin as ObsidianPlugin } from "obsidian";
 import { PluginSettingTab, App, Setting, Notice } from "obsidian"; //NEW
 import { buildIframeSrcdoc } from "./iframeSrcdoc";
 import { resolveDoenetScript, resolveMathJaxScript, resolveDoenetCSS } from "./loader";
-import type { DoenetMode } from "./types";
+import type { DoenetMode, DoenetVersion } from "./types";
 
 // So many render layers, but it works as well as
 // one might possibly hope.
@@ -24,12 +24,14 @@ interface DoenetOptions {
 
 interface DoenetPluginSettings {
   mode: DoenetMode;
+  doenetVersion: DoenetVersion;
   enableCache: boolean;
   cacheTTL: number;
 }
 
 const DEFAULT_SETTINGS: DoenetPluginSettings = {
   mode: "auto",
+  doenetVersion: "latest",
   enableCache: false,
   cacheTTL: 1440, // 24 hours
 };
@@ -293,6 +295,7 @@ export default class DoenetPlugin extends ObsidianPlugin {
 
     const scriptSource = resolveDoenetScript(
       this.settings.mode,
+      this.settings.doenetVersion,
       this.app,
       this
     );
@@ -419,6 +422,23 @@ class DoenetSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    // ----------------------
+    // Enable Version Selection
+    // ----------------------
+    new Setting(containerEl)
+          .setName("Doenet Version")
+          .setDesc("Choose which version of Doenet to use")
+          .addDropdown((dropdown) =>
+            dropdown
+              .addOption("latest", "Latest (stable)")
+              .addOption("dev", "Development")
+              .setValue(this.plugin.settings.doenetVersion)
+              .onChange(async (value: String) => {
+                this.plugin.settings.doenetVersion = value as DoenetVersion;
+                await this.plugin.saveSettings();
+              })
+          );
 
     // ----------------------
     // Enable Cache Toggle
