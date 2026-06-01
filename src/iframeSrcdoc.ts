@@ -57,39 +57,41 @@ ${css}
     height: auto;
   }
 
-/* ============= DOENET EXCESSIVE SPACING FIX ============= */
-/* If math renders strangely, it's probably something here. */
-/* Kill vertical stacking margins */
-.doenet-viewer > div {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-/* Kill graph container margins, huge improvement on Obsidian embedding */
-.jxgbox {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-/* Remove horizontal padding + width cap */
-.doenet-viewer {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  Padding: 0 !important;
-  max-width: 100% !important;
-}
-/* Prevent nested wrapper buildup */
-#doenet-viewer div[style*="margin: 12px"] {
-  margin: 0 !important;
-}
-/* ============= DOENET GRAPH AXES ============= */
-/* Too bold -- deemphasize them a bit. */
-.jxgbox line {
-  stroke: #666666 !important;
-}
-/* Light gray grid */
-.jxgbox path[stroke-opacity="0.5"] {
-  stroke: #bbbbbb !important;
-  stroke-opacity: 0.55 !important;
-}
+  /* ============= DOENET EXCESSIVE SPACING FIX ============= */
+  /* If math renders strangely, it's probably something here. */
+  /* Kill vertical stacking margins */
+  .doenet-viewer > div {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  /* Kill graph container margins, huge improvement on Obsidian embedding */
+  .jxgbox {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  /* Remove horizontal padding + width cap */
+  .doenet-viewer {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    Padding: 0 !important;
+    max-width: 100% !important;
+  }
+  /* Prevent nested wrapper buildup */
+  #doenet-viewer div[style*="margin: 12px"] {
+    margin: 0 !important;
+  }
+  /* ============= DOENET GRAPH AXES ============= */
+  /* Too bold -- deemphasize them a bit. */
+  .jxgbox line {
+    stroke: #666666 !important;
+  }
+  /* Light gray grid */
+  .jxgbox path[stroke-opacity="0.5"] {
+    stroke: #bbbbbb !important;
+    stroke-opacity: 0.55 !important;
+  }
+</style>
+
 </style></head>
 
 <body>
